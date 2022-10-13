@@ -1,0 +1,45 @@
+; fname: make_sample.p2dat
+;
+;  Create unbonded sample
+;==============================================================================
+model new
+model large-strain on
+model title 'Testing Bonded Particle Model'
+
+; Set the domain extent
+model domain extent -20 20 -20 20 condition destroy
+
+;contact cmat default model linear method deform emod 1.0e9 kratio 1.0 
+;contact cmat default property dp_nratio 0.7 
+model random 10001
+
+program call 'parameter_def.p2dat' suppress
+program call 'fish_functions.p2fis' suppress
+
+@allParameters
+@defineDefaultContactMaterial
+@makeBottomWall
+@makeLeftWall
+@makeRightWall
+@createPreGrowth
+@settlement
+@Layers
+@makeTopWall
+
+; Calm the system
+model cycle 1000 calm 10
+; Solve the system to a target limit (here the average force ratio)
+; Use density scaling to quickly reach equilibrium
+@settlement
+; delete side walls
+;wall delete range id 2
+;wall delete range id 3
+;[txx = -5e6]
+;ball tractions constant [txx] [txx] 0
+;model cycle 1
+;model solve ratio-average 1e-4
+;@settlement
+
+model save 'unbonded_50xsand'
+;==============================================================================
+; eof: make_sample.p2dat

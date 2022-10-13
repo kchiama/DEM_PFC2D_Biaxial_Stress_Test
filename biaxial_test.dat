@@ -1,0 +1,94 @@
+;↕model restore 'soft_bonded'
+;model restore 'parallel_bonded'
+wall property 'fric' 1.0
+
+[txx = -5e6]
+ball tractions constant [txx] [txx] 0
+model cycle 1
+model solve ratio-average 1e-4
+
+program echo off
+program call 'ss_wall.fis'
+program echo on
+
+@setup_wall
+
+wall attribute velocity-y -1e-6 range id @top_wall_id
+wall attribute velocity-y  1e-6 range id @bottom_wall_id
+
+;----------------------------------
+[vel_max = 1e-6] ; 1e-6
+
+[wp_left  = wall.find(left_wall_id)]
+[wp_right = wall.find(right_wall_id)]
+[wp_bot   = wall.find(bottom_wall_id)]
+[wp_top   = wall.find(top_wall_id)]
+
+fish define wlx
+  wlx  = wall.pos.x(wp_right) - wall.pos.x(wp_left)
+end
+
+fish define wly
+  wly  = wall.pos.y(wp_top) - wall.pos.y(wp_bot)
+end
+
+wall servo activate on force-x [ txx*wly] ...
+                       velocity-max @vel_max range id @right_wall_id
+wall servo activate on force-x [-txx*wly] ...
+                       velocity-max @vel_max range id @left_wall_id
+
+;fish define servo_walls
+;  wall.servo.force.x(wp_right) =   txx*wly
+;  wall.servo.force.x(wp_left)  =  -txx*wly
+;end
+fish define servo_walls
+    wall.servo.force.x(wp_right) =  txx*wly
+    wall.servo.force.x(wp_left)  =  -txx*wly
+end
+
+fish callback add @servo_walls  9.0
+
+fish define wsxx
+    global wp_left, wp_right, wly
+    wsxx = 0.5*(wall.force.contact.x(wp_left) ...
+         - wall.force.contact.x(wp_right))/ wly 
+end
+
+fish define wsyy
+    global wp_bot, wp_top, wlx
+    wsyy = 0.5*(wall.force.contact.y(wp_bot) ...
+         -  wall.force.contact.y(wp_top)  )/ wlx
+end
+
+fish history name 41 @wsxx
+fish history name 42 @wsyy
+
+;model orientation-tracking on
+;model calm
+;----------------------------------
+
+ball attribute damp 0.1
+
+fish history name 1 @axial_stress_wall
+fish history name 2 @axial_strain_wall
+history list all
+
+
+fish define peak_strain
+    peak_strain = math.abs(axial_strain_wall)
+end
+
+;create table
+;@track_init
+;fish history name 3 @crack_num
+
+model cycle 1000
+
+; run the test until stress falls below 75% of the peak
+fish set peak_fraction = 0.75
+model solve fish-halt @loadhalt_wall
+fish list @peak_stress
+fish list @peak_strain
+;history export 1 vs 2 file 'Stress_Strain' truncate
+
+model save 'biaxial_test'

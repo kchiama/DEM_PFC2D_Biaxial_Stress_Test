@@ -1,0 +1,58 @@
+; fname: parallel_bonded.p2dat
+;
+;  Create parallel bonded sample
+;=========================================================================
+model restore 'unbonded_50xsand'
+program call 'parameter_def.p2dat' suppress
+@allParameters
+
+wall delete range id 1
+wall delete range id 2
+wall delete range id 3
+wall delete range id 4
+@makeBottomWall
+@makeLeftWall
+@makeRightWall
+@makeTopWall
+ball delete range position-y [target_topo] @max_domain;
+ball delete range position-x [right_x2] @max_domain;
+ball delete range position-x [-20] [left_x1];
+ball delete range position-y [-20] [bot_y1] ;
+model cycle 1
+model solve ratio-average 1e-4
+
+contact model linearpbond range contact type 'ball-ball'
+contact method bond gap 0.0125
+
+; excerpt-nrnz-start
+; set linear stiffness
+contact method deform emod 1.0e9 kratio 1.0
+
+; set stiffness of bond material
+contact method pb_deform emod 1.0e9 kratio 1.0
+; excerpt-nrnz-end
+
+; set bond strengths
+contact property pb_ten 1e6 pb_coh 1e6 pb_fa 32.6
+
+; set some damping at the contacts
+contact property dp_nratio 0.7
+
+; set ball-ball friction to non-zero value
+contact property fric 0.3 range contact type 'ball-ball'
+
+; Reset ball displacement
+ball attribute displacement multiply 0.0
+
+; excerpt-eire-start
+; Set linear force to 0.0 and force a reset of the linear contact forces.
+contact property lin_force 0.0 0.0 lin_mode 1
+ball attribute force-contact multiply 0.0 moment-contact multiply 0.0
+
+
+model cycle 1
+model solve ratio-average 1e-4
+model save 'parallel_bonded_50xsand_20m'
+
+;=========================================================================
+; eof: parallel_bonded.p2dat

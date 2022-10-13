@@ -1,0 +1,196 @@
+; Every single parameter uses SI unit.
+
+fish define exportResultSettings
+    if g_export_during_deformation = true then
+        command
+            ; Geometrical attributes (e.g., position, radius) and the id are by default saved
+            ball results active on add-attribute group
+            ;contact results active on add-attribute group
+            wall results active on add-attribute extra ; To have properties such as the wall friction
+        end_command
+    end_if
+end
+
+fish define saveCurrentModelState(filename_without_extension)
+    command
+        model save [filename_without_extension]
+        model results export [filename_without_extension]
+    end_command
+end
+
+fish define makeBottomWall
+    command 
+        wall create ...
+            vertices ...
+            @bot_x1 @bot_y1 ...
+            @bot_x2 @bot_y2 ...
+            name 'BottomWall' ...
+            id @bottom_wall_id
+    end_command
+end
+fish define makeLeftWall
+    command 
+        wall create ...
+            vertices ...
+            @left_x1 @left_y1 ...
+            @left_x2 @left_y2 ...
+            name 'LeftWall' ...
+            id @left_wall_id
+    end_command
+end
+fish define makeRightWall
+    command 
+        wall create ...
+            vertices ...
+            @right_x1 @right_y1 ...
+            @right_x2 @right_y2 ...
+            name 'RightWall' ...
+            id @right_wall_id
+    end_command
+end
+fish define makeTopWall
+    command
+        wall create ...
+            vertices ...
+            @top_x1 @top_y1 ...
+            @top_x2 @top_y2 ...
+            name 'TopWall' ...
+            id @top_wall_id
+    end_command
+end 
+
+fish define defineDefaultContactMaterial
+    command
+        cmat default model linear            ...
+            method deformability emod 1.0e9 kratio 1.0      ...
+            property dp_nratio 0.7
+    end_command
+end
+
+fish define settlement
+    command
+        model mechanical timestep scale
+        model gravity 0 -9.80665
+        model large-strain yes
+        model cycle 1000 calm 50
+        model solve ratio-average 1e-4
+    end_command
+end
+
+fish define makeUppermostLayerFlat(target_topo)
+    command
+        ball delete range position-y @target_topo @max_domain
+    end_command
+    settlement
+    saveCurrentModelState('eroded_sediment')
+end
+
+
+fish define addNewBalls(x_min,x_max,y_min,y_max,ball_lower_radius,ball_upper_radius,group_name,group_slot)
+    ;Redefine edges of box boundaries for particle generation. Seems unnecessary but particles will generate outside of walls otherwise.
+    local modified_x_max = x_max
+    local modified_x_min = x_min
+    
+    if modified_x_min <= left_x1 then
+        modified_x_min = left_x1
+    end_if
+
+    if modified_x_max >= right_x1 then
+        modified_x_max = right_x1
+    end_if
+    
+    if modified_x_max - x_min <= ball_upper_radius then
+        exit
+    end_if
+    
+    ; I want to generate balls a little above the local top of the topography to avoid strong collision.
+    local modified_y_min = y_min + box_shift; -1.5+shift
+    
+    local modified_y_max = y_max + (box_shift * 10) ;1.5+shift
+    if modified_y_max - modified_y_min < ball_upper_radius
+        modified_y_max = modified_y_min + ball_upper_radius
+    end_if
+
+    command
+        echo-line @modified_x_min
+        echo-line @modified_x_max
+        echo-line @modified_y_min
+        ;echo-line @modified_y_max    
+        ball distribute ... 
+            porosity @g_ball_porosity ... 
+            radius @ball_lower_radius @ball_upper_radius ... 
+            box [modified_x_min] [modified_x_max] [modified_y_min] [modified_y_max] ... ;[modified_x_min] [modified_x_max] [modified_y_min] [modified_y_max] ... 
+            group @group_name slot @group_slot ; -x, +x, -y, +y
+        ball attribute radius multiply @g_radius_multiplier 
+        ball attribute density @g_ball_density 
+        ball property 'fric' @g_initial_ball_friction 
+            
+    end_command
+end
+
+fish define createPreGrowth
+    ; Balls for all the pre-growth layers are generated at once and then groups are made to distinguish the different layers.
+    addNewBalls(x_min,x_max,y_min,y_max,ball_lower_radius,ball_upper_radius,'pre_growth', 'pre_growth')
+    settlement
+    makeUppermostLayerFlat(target_topo)
+end
+
+fish define Layers
+    loop local i (1,g_nb_pre_growth_layers)
+        command
+            ball group ['pre_growth_layer_' + string(i)] slot 'pre_growth' range position-y [bot_y1 + (i-1)*g_pre_growth_layer_thickness] [bot_y1 + i*g_pre_growth_layer_thickness]
+        end_command
+    end_loop
+end
+
+fish define activateExportResultDuringDeformation
+    command
+        model results interval step @g_time_between_two_export warn off
+        model results index 1
+        ;contact property pb_state on
+        ;ball results active on add-attribute damp 
+        ;ball results active on add-attribute density 
+        ball results active on add-attribute displacement 
+        ;ball results active on add-attribute energy-body 
+        ;ball results active on add-attribute energy-damp 
+        ;ball results active on add-attribute energy-kinetic 
+        ;ball results active on add-attribute extra 
+        ball results active on add-attribute force-applied 
+        ball results active on add-attribute force-contact 
+        ball results active on add-attribute force-unbalanced
+        ball results active on add-attribute group
+        ball results active on add-attribute id 
+        ball results active on add-attribute mass 
+        ;ball results active on add-attribute mass-inertial 
+        ;ball results active on add-attribute moi 
+        ;ball results active on add-attribute moi-inertial 
+        ;ball results active on add-attribute moment-applied 
+        ;ball results active on add-attribute moment-contact 
+        ;ball results active on add-attribute moment-unbalanced 
+        ball results active on add-attribute position 
+        ball results active on add-attribute radius 
+        ball results active on add-attribute rotation 
+        ;ball results active on add-attribute stress-prin-max 
+        ;ball results active on add-attribute stress-prin-min 
+        ;ball results active on add-attribute stress-xx 
+        ;ball results active on add-attribute stress-xy 
+        ;ball results active on add-attribute stress-yy 
+        ball results active on add-attribute velocity 
+        ;ball results active on add-attribute volume
+        wall results active on add-attribute extra 
+        wall results active on add-attribute group
+        ;wall results active on add-attribute cutoff-angle
+        wall results active on add-attribute displacement
+        wall results active on add-attribute force-contact
+        ;wall results active on add-attribute fragment
+        ;wall results active on add-attribute moment-contact
+        ;wall results active on add-attribute normal-facet
+        wall results active on add-attribute position
+        ;wall results active on add-attribute position-facet
+        wall results active on add-attribute velocity
+       ; wall results active on add-attribute velocity-conveyor
+        ;wall results active on add-attribute velocity-facet; To have properties such as the wall friction
+    end_command
+end
+
+program return

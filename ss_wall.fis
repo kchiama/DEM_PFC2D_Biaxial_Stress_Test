@@ -1,0 +1,76 @@
+; fname: ss_wall.fis
+;
+;  Fish functions to record stress and strain in wall-loaded core samples
+;========================================================================
+fish def setup_wall
+;
+; Find the walls and get initial sample dimensions
+;
+  global wp_top = wall.find(top_wall_id) ; assume wall 1 is the top wall
+  global wp_bottom = wall.find(bottom_wall_id) ; assume wall 2 is the bottom wall
+  global vertical_direction = global.dim
+  global sample_height = wall.pos(wp_top,vertical_direction) - wall.pos(wp_bottom,vertical_direction)
+  
+  ; assume x and y are approximately the same in 3D
+  local xmin = 1.0e12
+  local xmax = -1.0e12
+  loop foreach local bp ball.list
+    local ball_xmin = ball.pos.x(bp) - ball.radius(bp)
+    xmin = math.min(xmin,ball_xmin)
+    local ball_xmax = ball.pos.x(bp) + ball.radius(bp)
+    xmax = math.max(xmax,ball_xmax)
+  end_loop
+  
+  local diameter_ = xmax - xmin
+  if global.dim = 2
+    global cross_sectional_area = diameter_
+  else
+    ; assume cylindrical sample in 3D
+    cross_sectional_area = math.pi*0.25*diameter_*diameter_
+  end_if
+  
+end
+========================================================
+fish def axial_stress_wall
+;
+; Compute axial stress (positive tension) using walls
+;
+; Assumes global variables sample_height and sample_width have been set
+;
+  
+  local force1 = -wall.force.contact(wp_top,vertical_direction)
+  local force2 = wall.force.contact(wp_bottom,vertical_direction)
+  axial_stress_wall = 0.5*(force1+force2)/cross_sectional_area
+end
+========================================================
+fish def axial_strain_wall
+;
+; Compute axial strain (positive tension) using walls
+;
+; Assumes global variable sample_width has been set
+;
+  axial_strain_wall = 2.0*wall.disp(wp_top,vertical_direction)/sample_height
+end
+
+fish define peak_strain
+    peak_strain = math.abs(axial_strain_wall)
+end
+==========================================================
+fish def loadhalt_wall
+;
+; Function used to stop a test when axial stress decreases to some fraction of the peak
+; Assumes axial_stress_wall is a function that returns axial stress
+; 
+; INPUT: peak_fraction - fraction of peak stress that dictates the stopping of the test
+;                        (global float)
+;
+  loadhalt_wall = 0
+  global peak_fraction
+  local abs_stress = math.abs(axial_stress_wall)
+  global peak_stress = math.max(abs_stress,peak_stress)
+  if abs_stress < peak_stress*peak_fraction
+    loadhalt_wall = 1
+  end_if
+end
+;==============================================================================
+; eof: ss_wall.fis

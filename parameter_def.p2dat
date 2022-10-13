@@ -1,0 +1,76 @@
+; Every single parameter uses SI unit.
+
+; 'g_' prefix is for 'global' so I know that it is a global parameter that I defined.
+
+fish define allParameters
+    ; Export parameters
+    global g_export_during_deformation = true
+    global g_time_between_two_export = 500
+    global max_domain = 20
+    
+    ; Sample Size
+    global height = 0.4 * 50 ;10m
+    global width = height / 2; 5m
+    global sample_size = height / 2
+    global target_topo = sample_size
+    global plus_length = 0.1 * sample_size ; extra legnth to add to walls
+    
+    ; Walls
+    global bot_x1 = (-1)*(0.5)*width - plus_length ; -0.8
+    global bot_y1 = (-1)*(0.5)*height       ; -1.5
+    global bot_x2 = (0.5)*width + plus_length      ; 0.8
+    global bot_y2 = (-1)*(0.5)*height       ; -1.5
+    global bottom_wall_id = 1
+    global left_x1 = (-1)*(0.5)*width       ;
+    global left_y1 = (-1)*(0.5)*height - plus_length
+    global left_x2 = (-1)*(0.5)*width
+    global left_y2 = (0.5)*height + plus_length
+    global left_wall_id = 2
+    global right_x1 = (0.5)*width 
+    global right_y1 = (-1)*(0.5)*height - plus_length
+    global right_x2 = (0.5)*width
+    global right_y2 = (0.5)*height + plus_length
+    global right_wall_id = 3
+    global top_x1 = (-1)*(0.5)*width - plus_length ; -0.8
+    global top_y1 = (0.5)*height            ; 1.5
+    global top_x2 = (0.5)*width + plus_length      ; 0.8
+    global top_y2 = (0.5)*height            ; 1.5
+    global top_wall_id = 4
+    
+    ; Sample Box
+    global x_min = left_x1
+    global x_max = right_x1
+    global y_min = bot_y1
+    global y_max = top_y1
+    
+    ; Sample parameters
+    global g_ball_density = 2600 
+    global g_radius_multiplier = 1.0
+    global g_ball_porosity = 0.2
+    global g_initial_ball_friction = 0.0
+    global g_nb_pre_growth_layers = height
+    global ball_lower_radius = 0.0005 * 50;0.0005;0.025;m
+    global ball_upper_radius = 0.001325 * 50;0.001325;0.06625;m
+    global g_pre_growth_layer_thickness = 1
+    global g_pre_growth_ball_friction = 0.3
+    global g_pre_growth_total_thickness = g_pre_growth_layer_thickness * g_nb_pre_growth_layers
+    global g_growth_layer_thickness = 300
+    global g_growth_ball_friction = g_pre_growth_ball_friction
+    global g_nb_growth_layers = 0
+    global g_coef_to_be_a_litte_above_target_topo = 0.1
+    global box_shift = 4 * ball_upper_radius
+    global nb_boxes = ((width) / (ball_upper_radius * 2.0 * 10.0))
+    global x_axis_discretization_step = width / nb_boxes
+    
+    ;Homogeneous Mechanical Properties
+        global g_pre_growth_pb_ten = 10e5
+        global g_pre_growth_pb_coh = 10e5
+        global g_pre_growth_bond_gap = ball_upper_radius/2
+    
+    ;Other Sediment Properties
+        global g_pb_rmul = 0.1
+        global g_dp_nratio = 0.7
+        global g_pb_fa = 32.6
+end
+
+program return
